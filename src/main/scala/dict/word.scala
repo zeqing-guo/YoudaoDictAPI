@@ -74,7 +74,7 @@ class word(word: String = "") {
                 val speech = li.child(0).text()
                 val definition = li.child(1).children().toList.zipWithIndex.map {
                   case (childElement, index) =>
-                    (index + 1).toString + ". " + childElement.child(0).text() + "\n" + childElement.child(1).text()
+                    (index + 1).toString + ". " + childElement.children().toList.map(_.text()).mkString("\n")
                 } mkString "\n"
                 speech + "\n" + definition
               } else {

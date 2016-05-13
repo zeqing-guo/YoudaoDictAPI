@@ -1,10 +1,12 @@
 package dict
 
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
+import org.jsoup.nodes.{Element, Document}
 import org.jsoup.select.Elements
 
+import scala.annotation.tailrec
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 /**
   * Created by gzq on 16-5-11.
@@ -58,11 +60,11 @@ class word(word: String = "") {
     } mkString "\n"
   }
 
-  def englishDefinition = {
+  def eeDict = {
     initWeb()
     val div = web.select("div#tEETrans > div").get(0)
     var content = ""
-    for (element <- div.children().toList) {
+    for (element <- div.children()) {
       val tagName = element.tagName()
       if (tagName == "h4") {
         content += element.text() + "\n"
@@ -84,6 +86,62 @@ class word(word: String = "") {
         content += "\n"
       } else if (tagName == "p") {
         content += element.text() + "\n"
+      }
+    }
+    content
+  }
+
+  def authDict = {
+    initWeb()
+    val div = web.select("div#authDictTrans").get(0)
+    var content = ""
+    content += div.child(0).text() + "\n"
+    content += printUl(div.child(1))
+    content
+  }
+
+  private def printUl(element: Element) = {
+    var content = ""
+    val elementStack = mutable.Stack[Element]()
+    val indexStack = mutable.Stack[Int]()
+    val levelStack = mutable.Stack[Int]()
+    elementStack.push(element)
+    levelStack.push(0)
+    while (elementStack.nonEmpty) {
+      val elem = elementStack.pop()
+      val level = levelStack.pop()
+      elem.tagName() match {
+        case "span" => content += elem.text() + "\n"
+        case "p" => content += elem.text() + "\n"
+        case "ul" =>
+          if (elem.hasClass("ol")) {
+            elem.children.zipWithIndex.reverse.foreach {
+              case (li, index) =>
+                elementStack.push(li)
+                indexStack.push(index + 1)
+                levelStack.push(level + 1)
+            }
+          } else {
+            elem.children.reverse.foreach {
+              li =>
+                elementStack.push(li)
+                indexStack.push(0)
+                levelStack.push(level + 1)
+            }
+          }
+        case "li" =>
+          val index = indexStack.pop()
+          val extraBlank = if (elem.children().size() == 0 || elem.child(0).tagName() != "span") "\n" else ""
+          if (index == 0) {
+            content += ("\t" * level) + elem.ownText() + extraBlank
+          } else {
+            content += ("\t" * level) + "%d. %s%s".format(index, elem.ownText(), extraBlank)
+          }
+          elem.children.reverse.foreach {
+            child =>
+              elementStack.push(child)
+              levelStack.push(level + 1)
+          }
       }
     }
     content

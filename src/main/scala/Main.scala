@@ -3,7 +3,7 @@
   */
 object Main {
   def main(args: Array[String]) {
-    val word = dict.word("eclipse").englishDefinition
+    val word = dict.word("eclipse").authDict
     println(word)
   }
 }

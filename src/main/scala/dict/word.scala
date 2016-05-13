@@ -1,12 +1,13 @@
 package dict
 
 import org.jsoup.Jsoup
-import org.jsoup.nodes.{Element, Document}
+import org.jsoup.nodes.{Document, Element}
 import org.jsoup.select.Elements
 
 import scala.annotation.tailrec
 import scala.collection.JavaConversions._
 import scala.collection.mutable
+import scala.util.Try
 
 /**
   * Created by gzq on 16-5-11.
@@ -64,30 +65,8 @@ class word(word: String = "") {
     initWeb()
     val div = web.select("div#tEETrans > div").get(0)
     var content = ""
-    for (element <- div.children()) {
-      val tagName = element.tagName()
-      if (tagName == "h4") {
-        content += element.text() + "\n"
-      } else if (tagName == "ul") {
-        content += element.children().toList
-          .map {
-            li =>
-              if (li.child(1).tagName() == "ul") {
-                val speech = li.child(0).text()
-                val definition = li.child(1).children().toList.zipWithIndex.map {
-                  case (childElement, index) =>
-                    (index + 1).toString + ". " + childElement.children().toList.map(_.text()).mkString("\n")
-                } mkString "\n"
-                speech + "\n" + definition
-              } else {
-                li.child(0).text() + " " + li.child(1).text() + "\n" + li.child(2).text()
-              }
-          } mkString "\n"
-        content += "\n"
-      } else if (tagName == "p") {
-        content += element.text() + "\n"
-      }
-    }
+    content += div.child(0).text() + "\n"
+    content += getPrettyUl(div.child(1))
     content
   }
 
@@ -96,11 +75,53 @@ class word(word: String = "") {
     val div = web.select("div#authDictTrans").get(0)
     var content = ""
     content += div.child(0).text() + "\n"
-    content += printUl(div.child(1))
+    content += getPrettyUl(div.child(1))
     content
   }
 
-  private def printUl(element: Element) = {
+  def collinsDict = {
+    initWeb()
+    val div = web.select("div#collinsResult > div > div > div > div").get(0)
+    var content = ""
+    content += div.child(0).text() + "\n"
+    div.child(1).removeClass("ol")
+    content += getPrettyUl(div.child(1))
+    content
+  }
+
+  def wordGroup = {
+    initWeb()
+    val div = web.select("div#wordGroup").get(0)
+    div.children().init.map {
+      p => p.child(0).text() + " " + p.ownText()
+    } mkString "\n"
+  }
+
+  def synonyms = {
+    initWeb()
+    val ul = web.select("div#synonyms > ul").get(0)
+    getPrettyUl(ul)
+  }
+
+  def relWord = {
+    initWeb()
+    val div = web.select("div#relWordTab").get(0)
+    val textNodes = div.textNodes().filter(_.text().matches("\\s*\\S+\\s*"))
+    val ps = div.children()
+    ps.head.text() + "\n" + (ps.tail.zip(textNodes).map { case (p, t) => t.text().trim + "\n" + p.text() } mkString "\n")
+  }
+
+  def bilingualSentence = {
+    initWeb()
+    getPrettyUl(web.select("div#bilingual > ul").get(0))
+  }
+
+  def authSentence = {
+    initWeb()
+    getPrettyUl(web.select("div#authority > ul").get(0))
+  }
+
+  private def getPrettyUl(element: Element) = {
     var content = ""
     val elementStack = mutable.Stack[Element]()
     val indexStack = mutable.Stack[Int]()
@@ -111,8 +132,15 @@ class word(word: String = "") {
       val elem = elementStack.pop()
       val level = levelStack.pop()
       elem.tagName() match {
-        case "span" => content += elem.text() + "\n"
-        case "p" => content += elem.text() + "\n"
+        case "span" =>
+          val tail =
+            if (Try(elem.nextElementSibling().tagName()).getOrElse("") == "span")
+              " "
+            else
+              "\n"
+          content += elem.text() + tail
+        case "p" => content += " " * level + elem.text() + "\n"
+        case "div" => content += " " * level + elem.text() + "\n"
         case "ul" =>
           if (elem.hasClass("ol")) {
             elem.children.zipWithIndex.reverse.foreach {
@@ -131,11 +159,17 @@ class word(word: String = "") {
           }
         case "li" =>
           val index = indexStack.pop()
-          val extraBlank = if (elem.children().size() == 0 || elem.child(0).tagName() != "span") "\n" else ""
+          val extraBlank =
+            if (elem.children().size() == 0
+              || elem.child(0).tagName() != "span" && elem.child(0).tagName() != "ul"
+              || elem.child(0).tagName() == "ul" && elem.child(0).child(0).tagName() != "span")
+              "\n"
+            else
+              ""
           if (index == 0) {
-            content += ("\t" * level) + elem.ownText() + extraBlank
+            content += (" " * level) + elem.ownText() + extraBlank
           } else {
-            content += ("\t" * level) + "%d. %s%s".format(index, elem.ownText(), extraBlank)
+            content += (" " * level) + "%d. %s%s".format(index, elem.ownText(), extraBlank)
           }
           elem.children.reverse.foreach {
             child =>

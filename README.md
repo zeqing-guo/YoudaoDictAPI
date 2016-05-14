@@ -1,5 +1,6 @@
 # YoudaoDictAPI
 Unofficial Youdao Dictionary API
+
 有道词典的非官方API
 
 # Usage
@@ -32,5 +33,6 @@ dict.word("naive").authSentences
 返回类型为`String`。
 
 如果所查词汇不存在或者缺少相关条目（比如naive的词典页面没有词组短语这个条目）将会返回`""`。
+
 如果网络链接超时将会返回`"Connection timed out"`。
 

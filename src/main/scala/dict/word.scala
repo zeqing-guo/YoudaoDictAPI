@@ -16,10 +16,13 @@ class word(word: String = "") {
   private var web: Document = null
   private var pronounce: Elements = null
 
-  private def getPronounce(country: String = "英") = {
+  private def getPronounce(country: String = "英"): String = {
     initWeb()
+    if (web == null) {
+      return "Connection timed out"
+    }
     initPronounce()
-    pronounce.toList.find(_.ownText().startsWith(country)).map(_.child(0).ownText()).getOrElse("")
+    pronounce.find(_.ownText().startsWith(country)).map(_.child(0).ownText()).getOrElse("")
   }
 
   def uk = {
@@ -30,57 +33,96 @@ class word(word: String = "") {
     getPronounce("美")
   }
 
-  def definition = {
+  def simpleDefinition: String = {
     initWeb()
+    if (web == null) {
+      return "Connection timed out"
+    }
     val div = web.select("div#phrsListTab > div.trans-container")
+    if (div.size() == 0) {
+      return ""
+    }
     val pOrUl = div.last()
     if (pOrUl.hasClass("additional")) {
       val ul = div.first()
-      ul.children().toList.map(_.text()).mkString("\n") + pOrUl.text()
+      ul.children().map(_.text()).mkString("\n") + pOrUl.text()
     } else {
-      pOrUl.children().toList.map(_.text()).mkString("\n")
+      pOrUl.children().map(_.text()).mkString("\n")
     }
   }
 
-  def network = {
+  def networkDefinition: String = {
     initWeb()
+    if (web == null) {
+      return "Connection timed out"
+    }
     val divs = web.select("div#tWebTrans > div.wt-container")
+    if (divs.size() == 0) {
+      return ""
+    }
     val ps = web.select("div#tWebTrans > div#webPhrase > p.wordGroup")
-    val definitions = divs.toList.map(_.children().toList.init.map(_.text()).mkString("\n\t")).mkString("\n")
-    val phrases =  ps.toList.map(p => p.child(0).text() + ": " + p.ownText()).mkString("\n")
+    val definitions = divs.map(_.children().toList.init.map(_.text()).mkString("\n\t")).mkString("\n")
+    val phrases =  ps.map(p => p.child(0).text() + ": " + p.ownText()).mkString("\n")
     definitions + "\n短语\n" + phrases
   }
 
-  def technology = {
+  def glossaryDefinition: String = {
     initWeb()
-    val titles = web.select("div#tPETrans-type-list > a").toList.map(_.text())
-    val definitions = web.select("ul#tPETrans-all-trans > li").toList.map(_.text())
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val titles = web.select("div#tPETrans-type-list > a").map(_.text())
+    if (titles.isEmpty) {
+      return ""
+    }
+    val definitions = web.select("ul#tPETrans-all-trans > li").map(_.text())
     titles zip definitions map {
       case (title, definition) => title + "\n\t" + definition
     } mkString "\n"
   }
 
-  def eeDict = {
+  def eeDefinition: String = {
     initWeb()
-    val div = web.select("div#tEETrans > div").get(0)
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#tEETrans > div")
+    if (divs.size() == 0) {
+      return ""
+    }
+    val div = divs.head
     var content = ""
     content += div.child(0).text() + "\n"
     content += getPrettyUl(div.child(1))
     content
   }
 
-  def authDict = {
+  def authDict: String = {
     initWeb()
-    val div = web.select("div#authDictTrans").get(0)
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#authDictTrans")
+    if (divs.size() == 0) {
+      return ""
+    }
+    val div = divs.head
     var content = ""
     content += div.child(0).text() + "\n"
     content += getPrettyUl(div.child(1))
     content
   }
 
-  def collinsDict = {
+  def collinsDict: String = {
     initWeb()
-    val div = web.select("div#collinsResult > div > div > div > div").get(0)
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#collinsResult > div > div > div > div")
+    if (divs.size() == 0) {
+      return ""
+    }
+    val div = divs.head
     var content = ""
     content += div.child(0).text() + "\n"
     div.child(1).removeClass("ol")
@@ -88,36 +130,71 @@ class word(word: String = "") {
     content
   }
 
-  def wordGroup = {
+  def groups: String = {
     initWeb()
-    val div = web.select("div#wordGroup").get(0)
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#wordGroup")
+    if (divs.size() == 0) {
+      return ""
+    }
+    val div = divs.head
     div.children().init.map {
       p => p.child(0).text() + " " + p.ownText()
     } mkString "\n"
   }
 
-  def synonyms = {
+  def synonyms: String = {
     initWeb()
-    val ul = web.select("div#synonyms > ul").get(0)
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val uls = web.select("div#synonyms > ul")
+    if (uls.size() == 0) {
+      return ""
+    }
+    val ul = uls.head
     getPrettyUl(ul)
   }
 
-  def relWord = {
+  def relWords: String = {
     initWeb()
-    val div = web.select("div#relWordTab").get(0)
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#relWordTab")
+    if (divs.size() == 0) {
+      return ""
+    }
+    val div = divs.head
     val textNodes = div.textNodes().filter(_.text().matches("\\s*\\S+\\s*"))
     val ps = div.children()
     ps.head.text() + "\n" + (ps.tail.zip(textNodes).map { case (p, t) => t.text().trim + "\n" + p.text() } mkString "\n")
   }
 
-  def bilingualSentence = {
+  def biSentences: String = {
     initWeb()
-    getPrettyUl(web.select("div#bilingual > ul").get(0))
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#bilingual > ul")
+    if (divs.size() == 0) {
+      return ""
+    }
+    getPrettyUl(divs.head)
   }
 
-  def authSentence = {
+  def authSentences: String = {
     initWeb()
-    getPrettyUl(web.select("div#authority > ul").get(0))
+    if (web == null) {
+      return "Connection timed out"
+    }
+    val divs = web.select("div#authority > ul")
+    if (divs.size() == 0) {
+      return ""
+    }
+    getPrettyUl(divs.head)
   }
 
   private def getPrettyUl(element: Element) = {
@@ -182,10 +259,10 @@ class word(word: String = "") {
 
   private def initWeb() = {
     if (web == null) {
-      web = Jsoup.connect(url)
+      web = Try(Jsoup.connect(url)
         .userAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36")
         .timeout(3000)
-        .get()
+        .get()).getOrElse(null)
     }
   }
 
